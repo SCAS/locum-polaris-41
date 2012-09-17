@@ -15,7 +15,7 @@
   * apt-get install php5-mssql
   */
  
-class locum_polaris_40 {
+class locum_polaris_41 {
  
   public $locum_config;
  

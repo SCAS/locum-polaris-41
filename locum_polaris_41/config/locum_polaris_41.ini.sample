@@ -4,7 +4,7 @@
 ; your environment needs them.
 
 [connector_info]
-description                 = "Locum connector for Polaris 4.0"
+description                 = "Locum connector for Polaris 4.1"
 
 ; Locum uses this section to determine which server and which port to use
 ; server_select can either be "live" or "staging", depending on what set of
