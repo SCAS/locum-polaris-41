@@ -1,3 +1,5 @@
+Bib Harvest/Scrape
+
 Array
 (
     [bnum] => Passed
@@ -75,3 +77,54 @@ SELECT TOP 1000 tag.[BibliographicTagID]
   WHERE tag.[BibliographicRecordID] = 157203
   
 ORDER BY [EffectiveTagNumber] ASC, [Sequence] ASC, [SubfieldSequence] ASC
+
+// Item Status
+
+Array
+(
+    [holds] => 17
+    [on_order] => 0
+    [orders] => Array
+        (
+        )
+
+    [items] => Array
+        (
+            [0] => Array
+                (
+                    [location] => First Floor - Audiobook
+                    [loc_code] => f1dbr
+                    [callnum] => ACD Fic FLYNN
+                    [statusmsg] => Due September 20, 2012
+                    [avail] => 0
+                    [due] => 1348199999
+                    [age] => adult
+                    [branch] => 3
+                )
+
+            [1] => Array
+                (
+                    [location] => First Floor - Audiobook
+                    [loc_code] => f1dbr
+                    [callnum] => ACD Fic FLYNN
+                    [statusmsg] => Hold Shelf
+                    [avail] => 0
+                    [due] => 
+                    [age] => adult
+                    [branch] => 3
+                )
+
+        )
+
+)
+
+
+
+
+
+
+
+
+
+
+
