@@ -19,19 +19,19 @@ Array
     [edition] => Library ed.; Unabridged.
     [series] => 
     [callnum] => SQL1
-    [pub_info] => [Westminister, MD] : Books on Tape, p2012.
+    [pub_info] => SQL2
     [pub_year] => SQL1
-    [stdnum] => 0307990419
+    [stdnum] => SQL2
     [upc] => SQL1
     [cover_img] => 
     [download_link] => 
     [lccn] => 
-    [descr] => 15 sound discs (1152 min.) : digital ; 4 3/4 in.
+    [descr] => SQL2
     [notes] => 
 )
 
 
-SELECT TOP 1000
+SELECT TOP 16
 	br.BibliographicRecordID AS bnum,
 	br.CreationDate AS bib_created,
 	br.ModificationDate AS bib_lastupdate,
@@ -78,6 +78,70 @@ SELECT TOP 1000 tag.[BibliographicTagID]
   
 ORDER BY [EffectiveTagNumber] ASC, [Sequence] ASC, [SubfieldSequence] ASC
 
+// polaris_bib_record
+
+Array
+(
+    [bnum] => 159983
+    [bib_created] => 2012-08-10 08:56:53
+    [bib_lastupdate] => 2012-08-10 08:56:53
+    [bib_prevupdate] => 2012-08-10 08:56:53
+    [bib_revs] => 1
+    [lang] => eng
+    [loc_code] => unused
+    [mat_code] => 1
+    [suppress] => 0
+    [author] => Flynn, Gillian, 1971-
+    [title] => Gone girl : a novel
+    [title_medium] => 
+    [callnumber] => Fic FLYNN
+    [pub_year] => 2012
+)
+
+//polaris_bib_tags
+
+    [0] => Array
+        (   
+            [bibliographictagid] => 3776456
+            [bibliographicrecordid] => 159983
+            [sequence] => 1
+            [tagnumber] => 5
+            [indicatorone] =>
+            [indicatortwo] =>
+            [effectivetagnumber] => 5
+            [subfieldsequence] => 1
+            [subfield] =>
+            [data] => 20120810085653.0
+        )
+
+    [1] => Array
+        (   
+            [bibliographictagid] => 3776457
+            [bibliographicrecordid] => 159983
+            [sequence] => 2
+            [tagnumber] => 8
+            [indicatorone] =>
+            [indicatortwo] =>
+            [effectivetagnumber] => 8
+            [subfieldsequence] => 1
+            [subfield] =>
+            [data] => 111026s2012    nyu           000 1 eng
+        )
+
+    [2] => Array
+        (
+            [bibliographictagid] => 3776458
+            [bibliographicrecordid] => 159983
+            [sequence] => 3
+            [tagnumber] => 10
+            [indicatorone] =>
+            [indicatortwo] =>
+            [effectivetagnumber] => 10
+            [subfieldsequence] => 1
+            [subfield] => a
+            [data] => 2011041525
+        )
+
 // Item Status
 
 Array
@@ -120,7 +184,7 @@ Array
 
 
 
-
+http://www.loc.gov/marc/bibliographic/ecbdlist.html
 
 
 

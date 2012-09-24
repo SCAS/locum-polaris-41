@@ -33,127 +33,146 @@ class locum_polaris_41 {
     $psql_database = $this->locum_config['polaris_sql']['database'];
     $psql_server = $this->locum_config['polaris_sql']['server'];
     $psql_port = $this->locum_config['polaris_sql']['port'];
-    $pils_server = $this->locum_config['ils_config']['ils_server'];
-    $orgID = $this->locum_config['polaris_api']['orgID'];
-    $appID = $this->locum_config['polaris_api']['appID'];
-    $langID = $this->locum_config['polaris_api']['langID'];
 
     $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
     $polaris_db =& MDB2::connect($polaris_dsn);
+    if (PEAR::isError($polaris_db)) {
+      return 'skip';
+    }
 
-    $bib['bnum'] = $bnum;
     $downloadable = FALSE;
 
-    // Grab the bib record from the database
-    $polaris_db_sql = 'SELECT * FROM [Polaris].[Polaris].[BibliographicRecords] WHERE [BibliographicRecordID] = ' . $bnum;
+    // Grab initial bib record details
+    $polaris_db_sql = 'SELECT br.BibliographicRecordID AS bnum, br.CreationDate AS bib_created, br.ModificationDate AS bib_lastupdate, br.ModificationDate AS bib_prevupdate, \'1\' AS bib_revs, br.MARCLanguage AS lang, \'unused\' AS loc_code, mtm.MARCTypeOfMaterialID AS mat_code, ((br.DisplayInPAC - 1) * -1) AS suppress, br.BrowseAuthor AS author, br.BrowseTitle AS title, LOWER(br.MARCMedium) AS title_medium, br.BrowseCallNo AS CallNumber, br.PublicationYear AS pub_year FROM [Polaris].[Polaris].[BibliographicRecords] AS br WITH (NOLOCK) LEFT OUTER JOIN [Polaris].[Polaris].[MARCTypeOfMaterial] AS mtm WITH (NOLOCK) ON mtm.MARCTypeOfMaterialID = br.PrimaryMARCTOMID LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicUPCIndex] AS upc WITH (NOLOCK) ON upc.BibliographicRecordID = br.BibliographicRecordID WHERE br.BibliographicRecordID = ' . $bnum;
     $polaris_db_query = $polaris_db->query($polaris_db_sql);
-    $polaris_bib_result = $polaris_db_query->fetchRow(MDB2_FETCHMODE_ASSOC);
-    if (!count($polaris_bib_result)) { return FALSE; }
-    
-    // Grab the item material types from the database
-    $polaris_db_sql = "SELECT [MaterialTypeID] FROM [Polaris].[Polaris].[ItemRecords] WHERE [AssociatedBibRecordID] = $bnum";
-    $polaris_db_query = $polaris_db->query($polaris_db_sql);
-    $polaris_items = $polaris_db_query->fetchCol();
+    $polaris_bib_record = $polaris_db_query->fetchRow(MDB2_FETCHMODE_ASSOC);
+    if (!count($polaris_bib_record)) { return FALSE; }
 
-    // Grab the bib record from the Polaris API
-    $polaris_xml = $this->simpleXMLToArray(simplexml_load_file('http://' . $pils_server . '/PAPIService/REST/public/v1/' . $langID . '/' . $appID . '/' . $orgID . '/bib/' . $bnum));
-    
-    if (count($polaris_xml['BibGetRows']['BibGetRow'])) {
-      foreach ($polaris_xml['BibGetRows']['BibGetRow'] as $xmlBib_arr) {
-        $polaris_xml_bib[preg_replace('/:/i', '', strtolower(trim($xmlBib_arr['Label'])))][] = trim($xmlBib_arr['Value']);
+    // Grab MARC details for bib record
+    $polaris_db_sql = 'SELECT tag.[BibliographicTagID],[BibliographicRecordID],[Sequence],[TagNumber],[IndicatorOne],[IndicatorTwo],[EffectiveTagNumber],[SubfieldSequence],[Subfield],[Data] FROM [Polaris].[Polaris].[BibliographicTags] AS tag LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicSubfields] AS sub ON tag.BibliographicTagID = sub.BibliographicTagID WHERE tag.[BibliographicRecordID] = ' . $bnum . ' ORDER BY [Sequence] ASC, [SubfieldSequence] ASC, [Subfield] ASC';
+    $polaris_db_query = $polaris_db->query($polaris_db_sql);
+    $polaris_bib_tags = $polaris_db_query->fetchAll(MDB2_FETCHMODE_ASSOC);
+    if (!count($polaris_bib_tags)) { return FALSE; }
+
+    // Set up empty values
+    $bib = array(
+      'bnum' => $bnum,
+      'lccn' => NULL,
+      'stdnum' => NULL,
+      'edition' => NULL,
+      'pub_info' => NULL,
+      'descr' => NULL,
+      'series' => NULL,
+      'notes' => NULL,
+      'subjects' => NULL,
+      'addl_author' => NULL,
+      'excerpt_link' => NULL,
+      'download_link' => NULL,
+    );
+
+    foreach ($polaris_bib_tags as $tag_arr) {
+
+      // LCCN
+      if ($tag_arr['tagnumber'] == 10 && $tag_arr['subfield'] == 'a' && !isset($bib['lccn'])) {
+        $bib['lccn'] = ereg_replace("[^A-Za-z0-9]", "", $tag_arr['data']);
       }
-    } else {
-      return FALSE;
+
+      // ISBN/stdnum
+      $stdnum = NULL;
+      if ($tag_arr['tagnumber'] == 20 && $tag_arr['subfield'] == 'a') {
+        if (strlen($stdnum) < $tag_arr['data']) {
+          $bib['stdnum'] = substr(ereg_replace("[^A-Za-z0-9]", "", $tag_arr['data']), 0, 13);
+        }
+        $stdnum = $tag_arr['data'];
+      }
+
+      // Edition information
+      if ($tag_arr['tagnumber'] == 250 && $tag_arr['subfield'] == 'a' && !isset($bib['edition'])) {
+        $bib['edition'] = $tag_arr['data'];
+      }
+
+      // Publisher
+      if ($tag_arr['tagnumber'] == 260) {
+        $bib['pub_info'] .= ' ' . $tag_arr['data'];
+        $bib['pub_info'] = trim($bib['pub_info']);
+      }
+
+      // Description
+      if ($tag_arr['tagnumber'] == 300) {
+        $bib['descr'] .= ' ' . $tag_arr['data'];
+        $bib['descr'] = trim($bib['descr']);
+      }
+
+      // Series
+      if ($tag_arr['tagnumber'] == 490 && $tag_arr['subfield'] == 'a' && !isset($bib['series'])) {
+        $bib['series'] = ucwords(trim(ereg_replace("[^A-Za-z0-9 .]", "", $tag_arr['data'])));
+      }
+
+      // Notes
+      if (($tag_arr['tagnumber'] >= 500 && $tag_arr['tagnumber'] <= 539) && $tag_arr['subfield'] == 'a') {
+        $bib_notes[] = $tag_arr['data'];
+        $bib['notes'] = serialize($bib_notes);
+      }
+
+      // LCSH
+      if (in_array($tag_arr['tagnumber'], array(600, 610, 611, 630, 648, 650, 651)) && in_array($tag_arr['subfield'], array('a','x','v'))) {
+        $subject_arr[$tag_arr['sequence']][] = ereg_replace("[^A-Za-z0-9 ]", "", $tag_arr['data']);
+      }
+
+      // Genre (goes in Subject)
+      if ($tag_arr['tagnumber'] == 655 && $tag_arr['subfield'] == 'a') {
+        $subject_arr[$tag_arr['sequence']][] = ereg_replace("[^A-Za-z0-9 ]", "", $tag_arr['data']);
+      }
+
+      // Additional Authors
+      if ($tag_arr['tagnumber'] == 700 && $tag_arr['subfield'] == 'a') {
+        $addl_author[] = $tag_arr['data'];
+        $bib['addl_author'] = serialize($addl_author);
+      }
+
+      // Digital content links
+      if ($tag_arr['tagnumber'] == 856 && $tag_arr['subfield'] == 'u') {
+        if (preg_match('/excerpt/i', $tag_arr['data'])) {
+          if (preg_match('/mp3/i', $tag_arr['data'])) {
+            $bib['excerpt_link'] = $tag_arr['data'];
+          } else if (!isset($bib['download_link'])) {
+            $bib['excerpt_link'] = $tag_arr['data'];
+          }
+        } else {
+          $bib['download_link'] = $tag_arr['data'];
+        }
+      }
+
     }
 
-    // Assign the values
-    $bib['bib_created'] = substr($polaris_bib_result['creationdate'], 0, 10);
-    $bib['bib_lastupdate'] = substr($polaris_bib_result['modificationdate'], 0, 10);
-    $bib['bib_prevupdate'] = substr($polaris_bib_result['modificationdate'], 0, 10);
-    $bib['modified'] = $polaris_bib_result['modificationdate'];
+    $bib['bib_created'] = substr($polaris_bib_record['bib_created'], 0, 10);
+    $bib['bib_lastupdate'] = substr($polaris_bib_record['bib_prevupdate'], 0, 10);
+    $bib['bib_prevupdate'] = substr($polaris_bib_record['bib_prevupdate'], 0, 10);
+    $bib['modified'] = $polaris_bib_record['bib_prevupdate'];
     $bib['bib_revs'] = 1; // Not tracked in Polaris?
-    $bib['lang'] = trim(preg_replace('/[^a-zA-Z0-9\s]/', '', $polaris_bib_result['marclanguage']));
-    $bib['lang'] = $bib['lang'] ? $bib['lang'] : 'eng'; // add defult config option. hard-coded for now.
-    $bib['loc_code'] = "unused";
-    $bib['mat_code'] = 0;
-    if (count($polaris_items)) {
-      $matcount = array();
-      foreach ($polaris_items as $matcode) {
-        $matcount[$matcode]++;
+    $bib['lang'] = $polaris_bib_record['lang'];
+    $bib['loc_code'] = 'unused';
+    $bib['mat_code'] = $polaris_bib_record['mat_code'];
+    $bib['suppress'] = $polaris_bib_record['suppress'];
+    $bib['author'] = ucwords($polaris_bib_record['author']);
+    $bib['title'] = ucwords($polaris_bib_record['title']);
+    $bib['title_medium'] = $polaris_bib_record['title_medium'];
+    $bib['callnum'] = $polaris_bib_record['callnumber'];
+    $bib['pub_year'] = $polaris_bib_record['pub_year'];
+    $bib['upc'] = isset($polaris_bib_record['upc']) ? $polaris_bib_record['upc'] : NULL;
+
+    if (isset($subject_arr)) {
+      foreach ($subject_arr as $subj) {
+        if (is_array($subj)) {
+          $bib['subjects'][] = implode(' -- ', $subj);
+        } else {
+          $bib['subjects'][] = $subj;
+        }
       }
-      ksort($matcount);
-      $matcodes = array_values(array_flip($matcount));
-      $bib['mat_code'] = $matcodes[0];
-    }
-    if ($polaris_xml_bib['format'][0] == $this->locum_config['polaris_custom_config']['polaris_eaudio_format_indicator']) {
-      $bib['mat_code'] = $this->locum_config['polaris_custom_config']['polaris_eaudio_materialid'];
-      $downloadable = TRUE;
-    } else if ($polaris_xml_bib['format'][0] == $this->locum_config['polaris_custom_config']['polaris_ebook_format_indicator']) {
-      $bib['mat_code'] = $this->locum_config['polaris_custom_config']['polaris_ebook_materialid'];
-      $downloadable = TRUE;
-    }
-    if ($polaris_bib_result['displayinpac'] == 1) { $bib['suppress'] = 0; } else { $bib['suppress'] = 1; }
-    $bib['author'] = $polaris_bib_result['browseauthor'];
-    if (count($polaris_xml_bib['other author'])) {
-      $bib['addl_author'] = serialize($polaris_xml_bib['other author']);
-    } else {
-      $bib['addl_author'] = NULL;
-    }
-    $bib['title'] = $polaris_bib_result['browsetitle'];
-    if (preg_match('/\[(.*?)\]/', $polaris_xml_bib['medium'][0], $medium_match)) {
-      $bib['title_medium'] = $medium_match[1];
-    } else {
-      $bib['title_medium'] = NULL;
-    }
-    $bib['edition'] = $polaris_xml_bib['edition'][0] ? $polaris_xml_bib['edition'][0] : NULL;
-    $bib['series'] = $polaris_xml_bib['series'][0] ? $polaris_xml_bib['series'][0] : NULL;
-    $bib['callnum'] = $polaris_bib_result['browsecallno'];
-    $bib['pub_info'] = $polaris_xml_bib['publisher, date'][0] ? $polaris_xml_bib['publisher, date'][0] : NULL;
-    $bib['pub_year'] = $polaris_bib_result['publicationyear'];
-    if ($polaris_xml_bib['isbn'][1]) {
-      $bib['stdnum'] = $polaris_xml_bib['isbn'][1];
-    } else if ($polaris_xml_bib['isbn'][0]) {
-      $bib['stdnum'] = $polaris_xml_bib['isbn'][0];
-    } else {
-      $bib['stdnum'] = NULL;
-    }
-    if ($bib['stdnum'] && preg_match('/ /', $stdnum)) {
-      $stdnum_arr = explode(' ', $bib['stdnum']);
-      $bib['stdnum'] = $stdnum_arr[0];
-    }
-    
-    $bib['upc'] = '00000000000000000000'; // Not supported yet (and not really needed)
-    $bib['cover_img'] = ''; // Not supported yet
-    if ($downloadable) {
-      $weblink = explode(' ', $polaris_xml_bib['web link'][0]);
-      $bib['download_link'] = trim($weblink[0]);
-    } else {
-      $bib['download_link'] = '';
-    }
-    
-    $bib['lccn'] = $polaris_xml_bib['lccn'][0] ? $polaris_xml_bib['lccn'][0] : NULL;
-    $bib['descr'] = $polaris_xml_bib['description'][0] ? $polaris_xml_bib['description'][0] : NULL;
-    
-    
-    if ($polaris_xml_bib['note'][0]) {
-      $bib_notes = $polaris_xml_bib['note'];
-      if ($polaris_xml_bib['summary'][0]) {
-        $bib_notes = array_merge($bib_notes, $polaris_xml_bib['summary']);
-      }
-      $bib['notes'] = serialize($bib_notes);
-    } else {
-      $bib['notes'] = NULL;
-    }
-    
-    if ($polaris_xml_bib['subject'][0]) {
-      $bib_subjects = $polaris_xml_bib['subject'];
-      if ($polaris_xml_bib['genre'][0]) {
-        $bib_subjects = array_merge($bib_subjects, $polaris_xml_bib['genre']);
-      }
-      $bib['subjects'] = $bib_subjects;
     }
 
     return $bib;
+    
   }
  
   /**
