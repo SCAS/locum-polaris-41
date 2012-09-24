@@ -48,17 +48,11 @@ $dsn = array(
     'hostspec' => $psql_server,
     'port'     => $psql_port,
     'database' => $psql_database,
-    'charset' => 'utf8',
-'newlink' => 'true'
-);
-
-$options = array(
-    'debug'       => 2,
-    'portability' => MDB2_PORTABILITY_ALL,
+    'options' => 'charset=utf8',
 );
 
     $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
-    $polaris_db =& MDB2::connect($dsn, $options);
+    $polaris_db =& MDB2::connect($dsn);
     if (PEAR::isError($polaris_db)) {
       die($mdb2->getMessage());
       return 'skip';
