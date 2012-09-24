@@ -79,6 +79,7 @@ SELECT TOP 1000 tag.[BibliographicTagID]
 ORDER BY [EffectiveTagNumber] ASC, [Sequence] ASC, [SubfieldSequence] ASC
 
 // polaris_bib_record
+http://hermione.ad.darienlibrary.net/PAPIService/REST/public/v1/1033/100/1/bib/157203
 
 Array
 (

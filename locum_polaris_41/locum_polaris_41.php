@@ -28,31 +28,42 @@ class locum_polaris_41 {
   */
   public function scrape_bib($bnum, $skip_cover = FALSE) {
 
+    //ini_set('mssql.charset', 'UTF-8');
+
     $psql_username = $this->locum_config['polaris_sql']['username'];
     $psql_password = $this->locum_config['polaris_sql']['password'];
     $psql_database = $this->locum_config['polaris_sql']['database'];
     $psql_server = $this->locum_config['polaris_sql']['server'];
     $psql_port = $this->locum_config['polaris_sql']['port'];
 
+
+    $options = array(
+      'charset' => 'utf8',
+    );
+
+$dsn = array(
+    'phptype'  => 'mssql',
+    'username' => $psql_username,
+    'password' => $psql_password,
+    'hostspec' => $psql_server,
+    'port'     => $psql_port,
+    'database' => $psql_database,
+    'charset' => 'utf8',
+'newlink' => 'true'
+);
+
+$options = array(
+    'debug'       => 2,
+    'portability' => MDB2_PORTABILITY_ALL,
+);
+
     $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
-    $polaris_db =& MDB2::connect($polaris_dsn);
+    $polaris_db =& MDB2::connect($dsn, $options);
     if (PEAR::isError($polaris_db)) {
+      die($mdb2->getMessage());
       return 'skip';
     }
 
-    $downloadable = FALSE;
-
-    // Grab initial bib record details
-    $polaris_db_sql = 'SELECT br.BibliographicRecordID AS bnum, br.CreationDate AS bib_created, br.ModificationDate AS bib_lastupdate, br.ModificationDate AS bib_prevupdate, \'1\' AS bib_revs, br.MARCLanguage AS lang, \'unused\' AS loc_code, mtm.MARCTypeOfMaterialID AS mat_code, ((br.DisplayInPAC - 1) * -1) AS suppress, br.BrowseAuthor AS author, br.BrowseTitle AS title, LOWER(br.MARCMedium) AS title_medium, br.BrowseCallNo AS CallNumber, br.PublicationYear AS pub_year FROM [Polaris].[Polaris].[BibliographicRecords] AS br WITH (NOLOCK) LEFT OUTER JOIN [Polaris].[Polaris].[MARCTypeOfMaterial] AS mtm WITH (NOLOCK) ON mtm.MARCTypeOfMaterialID = br.PrimaryMARCTOMID LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicUPCIndex] AS upc WITH (NOLOCK) ON upc.BibliographicRecordID = br.BibliographicRecordID WHERE br.BibliographicRecordID = ' . $bnum;
-    $polaris_db_query = $polaris_db->query($polaris_db_sql);
-    $polaris_bib_record = $polaris_db_query->fetchRow(MDB2_FETCHMODE_ASSOC);
-    if (!count($polaris_bib_record)) { return FALSE; }
-
-    // Grab MARC details for bib record
-    $polaris_db_sql = 'SELECT tag.[BibliographicTagID],[BibliographicRecordID],[Sequence],[TagNumber],[IndicatorOne],[IndicatorTwo],[EffectiveTagNumber],[SubfieldSequence],[Subfield],[Data] FROM [Polaris].[Polaris].[BibliographicTags] AS tag LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicSubfields] AS sub ON tag.BibliographicTagID = sub.BibliographicTagID WHERE tag.[BibliographicRecordID] = ' . $bnum . ' ORDER BY [Sequence] ASC, [SubfieldSequence] ASC, [Subfield] ASC';
-    $polaris_db_query = $polaris_db->query($polaris_db_sql);
-    $polaris_bib_tags = $polaris_db_query->fetchAll(MDB2_FETCHMODE_ASSOC);
-    if (!count($polaris_bib_tags)) { return FALSE; }
 
     // Set up empty values
     $bib = array(
@@ -69,6 +80,24 @@ class locum_polaris_41 {
       'excerpt_link' => NULL,
       'download_link' => NULL,
     );
+
+    // Grab initial bib record details
+    $polaris_db_sql = 'SELECT br.BibliographicRecordID AS bnum, br.CreationDate AS bib_created, br.ModificationDate AS bib_lastupdate, br.ModificationDate AS bib_prevupdate, \'1\' AS bib_revs, br.MARCLanguage AS lang, \'unused\' AS loc_code, mtm.MARCTypeOfMaterialID AS mat_code, ((br.DisplayInPAC - 1) * -1) AS suppress, br.BrowseAuthor AS author, br.BrowseTitle AS title, LOWER(br.MARCMedium) AS title_medium, br.BrowseCallNo AS CallNumber, br.PublicationYear AS pub_year FROM [Polaris].[Polaris].[BibliographicRecords] AS br WITH (NOLOCK) LEFT OUTER JOIN [Polaris].[Polaris].[MARCTypeOfMaterial] AS mtm WITH (NOLOCK) ON mtm.MARCTypeOfMaterialID = br.PrimaryMARCTOMID LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicUPCIndex] AS upc WITH (NOLOCK) ON upc.BibliographicRecordID = br.BibliographicRecordID WHERE br.BibliographicRecordID = ' . $bnum;
+    $polaris_db_query = $polaris_db->query($polaris_db_sql);
+    $polaris_bib_record = $polaris_db_query->fetchRow(MDB2_FETCHMODE_ASSOC);
+    if (!count($polaris_bib_record)) { return FALSE; }
+
+    // Grab MARC details for bib record
+    $polaris_db_sql = 'SELECT tag.[BibliographicTagID],[BibliographicRecordID],[Sequence],[TagNumber],[IndicatorOne],[IndicatorTwo],[EffectiveTagNumber],[SubfieldSequence],[Subfield],[Data] FROM [Polaris].[Polaris].[BibliographicTags] AS tag LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicSubfields] AS sub ON tag.BibliographicTagID = sub.BibliographicTagID WHERE tag.[BibliographicRecordID] = ' . $bnum . ' ORDER BY [Sequence] ASC, [SubfieldSequence] ASC, [Subfield] ASC';
+    $polaris_db_query = $polaris_db->query($polaris_db_sql);
+    $polaris_bib_tags = $polaris_db_query->fetchAll(MDB2_FETCHMODE_ASSOC);
+    if (!count($polaris_bib_tags)) { return FALSE; }
+
+    // Grab the item material types from the database
+    $polaris_db_sql = "SELECT [MaterialTypeID] FROM [Polaris].[Polaris].[ItemRecords] WHERE [AssociatedBibRecordID] = $bnum";
+    $polaris_db_query = $polaris_db->query($polaris_db_sql);
+    $polaris_items = $polaris_db_query->fetchCol();
+
 
     foreach ($polaris_bib_tags as $tag_arr) {
 
@@ -145,6 +174,19 @@ class locum_polaris_41 {
 
     }
 
+    // Determine the mat_code
+    $bib['mat_code'] = 0;
+    if (count($polaris_items)) {
+      $matcount = array();
+      foreach ($polaris_items as $matcode) {
+        if (!isset($matcount[$matcode])) { $matcount[$matcode] = 0; }
+        $matcount[$matcode]++;
+      }
+      ksort($matcount);
+      $matcodes = array_values(array_flip($matcount));
+      $bib['mat_code'] = $matcodes[0];
+    }
+
     $bib['bib_created'] = substr($polaris_bib_record['bib_created'], 0, 10);
     $bib['bib_lastupdate'] = substr($polaris_bib_record['bib_prevupdate'], 0, 10);
     $bib['bib_prevupdate'] = substr($polaris_bib_record['bib_prevupdate'], 0, 10);
@@ -152,7 +194,6 @@ class locum_polaris_41 {
     $bib['bib_revs'] = 1; // Not tracked in Polaris?
     $bib['lang'] = $polaris_bib_record['lang'];
     $bib['loc_code'] = 'unused';
-    $bib['mat_code'] = $polaris_bib_record['mat_code'];
     $bib['suppress'] = $polaris_bib_record['suppress'];
     $bib['author'] = ucwords($polaris_bib_record['author']);
     $bib['title'] = ucwords($polaris_bib_record['title']);
