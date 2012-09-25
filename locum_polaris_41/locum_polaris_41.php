@@ -28,7 +28,7 @@ class locum_polaris_41 {
   */
   public function scrape_bib($bnum, $skip_cover = FALSE) {
 
-    //ini_set('mssql.charset', 'UTF-8');
+    ini_set('mssql.charset', 'UTF-8');
 
     $psql_username = $this->locum_config['polaris_sql']['username'];
     $psql_password = $this->locum_config['polaris_sql']['password'];
@@ -36,28 +36,12 @@ class locum_polaris_41 {
     $psql_server = $this->locum_config['polaris_sql']['server'];
     $psql_port = $this->locum_config['polaris_sql']['port'];
 
-
-    $options = array(
-      'charset' => 'utf8',
-    );
-
-$dsn = array(
-    'phptype'  => 'mssql',
-    'username' => $psql_username,
-    'password' => $psql_password,
-    'hostspec' => $psql_server,
-    'port'     => $psql_port,
-    'database' => $psql_database,
-    'options' => 'charset=utf8',
-);
-
     $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
-    $polaris_db =& MDB2::connect($dsn);
+    $polaris_db =& MDB2::connect($polaris_dsn);
     if (PEAR::isError($polaris_db)) {
       die($mdb2->getMessage());
       return 'skip';
     }
-
 
     // Set up empty values
     $bib = array(
@@ -76,7 +60,7 @@ $dsn = array(
     );
 
     // Grab initial bib record details
-    $polaris_db_sql = 'SELECT br.BibliographicRecordID AS bnum, br.CreationDate AS bib_created, br.ModificationDate AS bib_lastupdate, br.ModificationDate AS bib_prevupdate, \'1\' AS bib_revs, br.MARCLanguage AS lang, \'unused\' AS loc_code, mtm.MARCTypeOfMaterialID AS mat_code, ((br.DisplayInPAC - 1) * -1) AS suppress, br.BrowseAuthor AS author, br.BrowseTitle AS title, LOWER(br.MARCMedium) AS title_medium, br.BrowseCallNo AS CallNumber, br.PublicationYear AS pub_year FROM [Polaris].[Polaris].[BibliographicRecords] AS br WITH (NOLOCK) LEFT OUTER JOIN [Polaris].[Polaris].[MARCTypeOfMaterial] AS mtm WITH (NOLOCK) ON mtm.MARCTypeOfMaterialID = br.PrimaryMARCTOMID LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicUPCIndex] AS upc WITH (NOLOCK) ON upc.BibliographicRecordID = br.BibliographicRecordID WHERE br.BibliographicRecordID = ' . $bnum;
+    $polaris_db_sql = 'SELECT br.BibliographicRecordID AS bnum, br.CreationDate AS bib_created, br.ModificationDate AS bib_lastupdate, br.ModificationDate AS bib_prevupdate, \'1\' AS bib_revs, br.MARCLanguage AS lang, \'unused\' AS loc_code, mtm.MARCTypeOfMaterialID AS format_code, ((br.DisplayInPAC - 1) * -1) AS suppress, br.BrowseAuthor AS author, br.BrowseTitle AS title, LOWER(br.MARCMedium) AS title_medium, br.BrowseCallNo AS CallNumber, br.PublicationYear AS pub_year FROM [Polaris].[Polaris].[BibliographicRecords] AS br WITH (NOLOCK) LEFT OUTER JOIN [Polaris].[Polaris].[MARCTypeOfMaterial] AS mtm WITH (NOLOCK) ON mtm.MARCTypeOfMaterialID = br.PrimaryMARCTOMID LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicUPCIndex] AS upc WITH (NOLOCK) ON upc.BibliographicRecordID = br.BibliographicRecordID WHERE br.BibliographicRecordID = ' . $bnum;
     $polaris_db_query = $polaris_db->query($polaris_db_sql);
     $polaris_bib_record = $polaris_db_query->fetchRow(MDB2_FETCHMODE_ASSOC);
     if (!count($polaris_bib_record)) { return FALSE; }
@@ -111,45 +95,45 @@ $dsn = array(
 
       // Edition information
       if ($tag_arr['tagnumber'] == 250 && $tag_arr['subfield'] == 'a' && !isset($bib['edition'])) {
-        $bib['edition'] = $tag_arr['data'];
+        $bib['edition'] = utf8_encode($tag_arr['data']);
       }
 
       // Publisher
       if ($tag_arr['tagnumber'] == 260) {
         $bib['pub_info'] .= ' ' . $tag_arr['data'];
-        $bib['pub_info'] = trim($bib['pub_info']);
+        $bib['pub_info'] = utf8_encode(trim($bib['pub_info']));
       }
 
       // Description
       if ($tag_arr['tagnumber'] == 300) {
         $bib['descr'] .= ' ' . $tag_arr['data'];
-        $bib['descr'] = trim($bib['descr']);
+        $bib['descr'] = utf8_encode(trim($bib['descr']));
       }
 
       // Series
       if ($tag_arr['tagnumber'] == 490 && $tag_arr['subfield'] == 'a' && !isset($bib['series'])) {
-        $bib['series'] = ucwords(trim(ereg_replace("[^A-Za-z0-9 .]", "", $tag_arr['data'])));
+        $bib['series'] = utf8_encode(ucwords(trim(ereg_replace("[^A-Za-z0-9 .]", "", $tag_arr['data']))));
       }
 
       // Notes
       if (($tag_arr['tagnumber'] >= 500 && $tag_arr['tagnumber'] <= 539) && $tag_arr['subfield'] == 'a') {
-        $bib_notes[] = $tag_arr['data'];
+        $bib_notes[] = utf8_encode($tag_arr['data']);
         $bib['notes'] = serialize($bib_notes);
       }
 
       // LCSH
       if (in_array($tag_arr['tagnumber'], array(600, 610, 611, 630, 648, 650, 651)) && in_array($tag_arr['subfield'], array('a','x','v'))) {
-        $subject_arr[$tag_arr['sequence']][] = ereg_replace("[^A-Za-z0-9 ]", "", $tag_arr['data']);
+        $subject_arr[$tag_arr['sequence']][] = utf8_encode(ereg_replace("[^A-Za-z0-9 ]", "", $tag_arr['data']));
       }
 
       // Genre (goes in Subject)
       if ($tag_arr['tagnumber'] == 655 && $tag_arr['subfield'] == 'a') {
-        $subject_arr[$tag_arr['sequence']][] = ereg_replace("[^A-Za-z0-9 ]", "", $tag_arr['data']);
+        $subject_arr[$tag_arr['sequence']][] = utf8_encode(ereg_replace("[^A-Za-z0-9 ]", "", $tag_arr['data']));
       }
 
       // Additional Authors
       if ($tag_arr['tagnumber'] == 700 && $tag_arr['subfield'] == 'a') {
-        $addl_author[] = $tag_arr['data'];
+        $addl_author[] = utf8_encode($tag_arr['data']);
         $bib['addl_author'] = serialize($addl_author);
       }
 
@@ -180,6 +164,13 @@ $dsn = array(
       $matcodes = array_values(array_flip($matcount));
       $bib['mat_code'] = $matcodes[0];
     }
+    
+    if  (in_array($polaris_bib_record['format_code'], explode(',', $this->locum_config['polaris_custom_config']['polaris_eaudio_format_indicator']))) {
+      $bib['mat_code'] = $this->locum_config['polaris_custom_config']['polaris_eaudio_materialid'];
+    } else if (in_array($polaris_bib_record['format_code'], explode(',', $this->locum_config['polaris_custom_config']['polaris_ebook_format_indicator']))) {
+      $bib['mat_code'] = $this->locum_config['polaris_custom_config']['polaris_ebook_materialid'];
+    }
+    
 
     $bib['bib_created'] = substr($polaris_bib_record['bib_created'], 0, 10);
     $bib['bib_lastupdate'] = substr($polaris_bib_record['bib_prevupdate'], 0, 10);
@@ -189,8 +180,8 @@ $dsn = array(
     $bib['lang'] = $polaris_bib_record['lang'];
     $bib['loc_code'] = 'unused';
     $bib['suppress'] = $polaris_bib_record['suppress'];
-    $bib['author'] = ucwords($polaris_bib_record['author']);
-    $bib['title'] = ucwords($polaris_bib_record['title']);
+    $bib['author'] = utf8_encode(ucwords($polaris_bib_record['author']));
+    $bib['title'] = utf8_encode(ucwords($polaris_bib_record['title']));
     $bib['title_medium'] = $polaris_bib_record['title_medium'];
     $bib['callnum'] = $polaris_bib_record['callnumber'];
     $bib['pub_year'] = $polaris_bib_record['pub_year'];
