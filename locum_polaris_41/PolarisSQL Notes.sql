@@ -189,7 +189,51 @@ http://www.loc.gov/marc/bibliographic/ecbdlist.html
 
 
 
-
-
-
+SELECT td.numValue AS OldBibRecordID,
+       td1.numValue AS NewBibRecordID,
+       th.TranClientDate
+FROM PolarisTransactions.polaris.TransactionHeaders th WITH (nolock)
+INNER JOIN PolarisTransactions.polaris.TransactionDetails td WITH (nolock) ON (th.TransactionID = td.TransactionID
+                                                                               AND td.TransactionSubTypeID = 38)
+INNER JOIN PolarisTransactions.polaris.TransactionDetails td1 WITH (nolock) ON (th.TransactionID = td1.TransactionID
+                                                                                AND td1.TransactionSubTypeID = 278)
+WHERE th.TransactionTypeID = 3024
+    AND td1.numValue IS NOT NULL
+    AND td1.numValue > 0
+UNION
+SELECT td.numValue AS OldBibID,
+       td1.numValue AS NewBibID,
+       th.TranClientDate
+FROM PolarisTransactions.polaris.TransactionHeaders th WITH (nolock)
+INNER JOIN PolarisTransactions.polaris.TransactionDetails td WITH (nolock) ON (th.TransactionID = td.TransactionID
+                                                                               AND td.TransactionSubTypeID = 36)
+INNER JOIN PolarisTransactions.polaris.TransactionDetails td1 WITH (nolock) ON (th.TransactionID = td1.TransactionID
+                                                                                AND td1.TransactionSubTypeID = 279)
+WHERE th.TransactionTypeID = 3024
+    AND td1.numValue IS NOT NULL
+    AND td1.numValue > 0
+UNION
+SELECT td.numValue AS OldBibRecordID,
+       td1.numValue AS NewBibRecordID,
+       th.TranClientDate
+FROM PolarisTransactions.polaris.TransactionHeaders th WITH (nolock)
+INNER JOIN PolarisTransactions.polaris.TransactionDetails td WITH (nolock) ON (th.TransactionID = td.TransactionID
+                                                                               AND td.TransactionSubTypeID = 38)
+INNER JOIN PolarisTransactions.polaris.TransactionDetails td1 WITH (nolock) ON (th.TransactionID = td1.TransactionID
+                                                                                AND td1.TransactionSubTypeID = 278)
+WHERE th.TransactionTypeID = 3001
+    AND td1.numValue IS NOT NULL
+    AND td1.numValue > 0
+UNION
+SELECT td.numValue AS OldBibID,
+       td1.numValue AS NewBibID,
+       th.TranClientDate
+FROM PolarisTransactions.polaris.TransactionHeaders th WITH (nolock)
+INNER JOIN PolarisTransactions.polaris.TransactionDetails td WITH (nolock) ON (th.TransactionID = td.TransactionID
+                                                                               AND td.TransactionSubTypeID = 36)
+INNER JOIN PolarisTransactions.polaris.TransactionDetails td1 WITH (nolock) ON (th.TransactionID = td1.TransactionID
+                                                                                AND td1.TransactionSubTypeID = 278)
+WHERE th.TransactionTypeID = 3001
+    AND td1.numValue IS NOT NULL
+    AND td1.numValue > 0
 

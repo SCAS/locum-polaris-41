@@ -1,5 +1,12 @@
 #!/usr/bin/php5 -q
 <?php
+/**
+ * Fix Overlay utility for rolling forward Bib #s in SCAS
+ *
+ * @author John Blyberg (john@blyberg.net) at (www.blyberg.net)
+ *
+ * See README.md for important details.
+ */
 
 ini_set('mssql.charset', 'UTF-8');
 
@@ -30,6 +37,4 @@ if (PEAR::isError($polaris_db)) {
   die($mdb2->getMessage());
 }
 
-
-// https://harmione.ad.darienlibrary.net/PAPIService/REST/protected/v1/1033/100/1/BCC2B0BB-EE67-4170-B879-E58C9143587A/synch/bibs/replacementids?startdate=2012-02-01
-// [PAPI_GetBibReplacementID]
+$sql = 'SELECT [OldBibRecordID], [NewBibRecordID], [TranClientDate] FROM [Polaris].[dbo].[!!SOPAC_BibReplacement] ORDER BY OldBibRecordID ASC';
