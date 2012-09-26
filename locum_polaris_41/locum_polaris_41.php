@@ -39,7 +39,6 @@ class locum_polaris_41 {
     $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
     $polaris_db =& MDB2::connect($polaris_dsn);
     if (PEAR::isError($polaris_db)) {
-      die($mdb2->getMessage());
       return 'skip';
     }
 
@@ -75,7 +74,6 @@ class locum_polaris_41 {
     $polaris_db_sql = "SELECT [MaterialTypeID] FROM [Polaris].[Polaris].[ItemRecords] WHERE [AssociatedBibRecordID] = $bnum";
     $polaris_db_query = $polaris_db->query($polaris_db_sql);
     $polaris_items = $polaris_db_query->fetchCol();
-
 
     foreach ($polaris_bib_tags as $tag_arr) {
 

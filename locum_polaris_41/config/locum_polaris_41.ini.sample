@@ -38,7 +38,7 @@ polaris_default_age                 = "adult"
 polaris_display_date_fmt            = "F j, Y"
 polaris_eaudio_materialid           = "11"
 polaris_ebook_materialid            = "12"
-polaris_eaudio_format_indicator     = "41"
+polaris_eaudio_format_indicator     = "22,41"
 polaris_ebook_format_indicator      = "6,36"
 
 
