@@ -2,8 +2,11 @@ At the time of writing this, there was a bug in the stored procedure that preven
 While waiting for the fix, I created a custom view on the Polaris SQL database that effectively does the same thing. So In order for
 this tool to work, a view will need to be created in the [Polaris] database:
 
-View name: `!!SOPAC_BibReplacement`
-Once saved, it should show up in the database as: `dbo.!!SOPAC_BibReplacement`
+* View name: `!!SOPAC_BibReplacement`
+* Once saved, it should show up in the database as: `dbo.!!SOPAC_BibReplacement`
+
+Additionally, you'll need to give dataread access to the database `PolarisTransactions` to whichever user you've configured
+for MDB2 access.
 
 Here is the SQL:
 

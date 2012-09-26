@@ -9,9 +9,10 @@
  */
 
 ini_set('mssql.charset', 'UTF-8');
+ini_set('memory_limit', '400M');
 
 // Drupal DSN
-$drupal_dsn = require_once('/usr/local/etc/drupal_dsn.php');
+require_once('/usr/local/etc/drupal_dsn.php');
 
 // Drupal Table:Field mapping.  Array is tablename => fieldname
 // where fieldname is the field containing the bib number
@@ -34,7 +35,35 @@ $psql_port = $locum->locum_config['polaris_sql']['port'];
 $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
 $polaris_db =& MDB2::connect($polaris_dsn);
 if (PEAR::isError($polaris_db)) {
-  die($mdb2->getMessage());
+  die($polaris_db->getMessage());
 }
 
-$sql = 'SELECT [OldBibRecordID], [NewBibRecordID], [TranClientDate] FROM [Polaris].[dbo].[!!SOPAC_BibReplacement] ORDER BY OldBibRecordID ASC';
+$drupal_db = MDB2::connect($dsn);
+if (PEAR::isError($drupal_db)) {
+  die($drupal_db->getMessage());
+}
+
+$polaris_db_sql = 'SELECT [OldBibRecordID], [NewBibRecordID], [TranClientDate] FROM [Polaris].[dbo].[!!SOPAC_BibReplacement] ORDER BY OldBibRecordID ASC';
+$polaris_db_query = $polaris_db->query($polaris_db_sql);
+$polaris_result = $polaris_db_query->fetchAll(MDB2_FETCHMODE_ASSOC);
+
+$bib_map = array();
+foreach ($polaris_result as $bib) {
+  $locum->bib_shift($bib['oldbibrecordid'], $bib['newbibrecordid']);
+
+  foreach ($drupal_bib_map as $table => $field) {
+    $sql = 'UPDATE ' . $table . ' SET ' . $field . ' = ' . $bib['newbibrecordid'] . ' WHERE ' . $field . ' = ' . $bib['oldbibrecordid'];
+    $drupal_db->query($sql);
+    $drupal_db->free();
+  }
+}
+
+
+
+
+
+
+
+
+
+
