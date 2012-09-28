@@ -164,9 +164,9 @@ class locum_polaris_41 {
     }
     
     if  (in_array($polaris_bib_record['format_code'], explode(',', $this->locum_config['polaris_custom_config']['polaris_eaudio_format_indicator']))) {
-      $bib['mat_code'] = $this->locum_config['polaris_custom_config']['polaris_eaudio_materialid'];
+      if ($bib['mat_code'] == 0) $bib['mat_code'] = $this->locum_config['polaris_custom_config']['polaris_eaudio_materialid'];
     } else if (in_array($polaris_bib_record['format_code'], explode(',', $this->locum_config['polaris_custom_config']['polaris_ebook_format_indicator']))) {
-      $bib['mat_code'] = $this->locum_config['polaris_custom_config']['polaris_ebook_materialid'];
+      if ($bib['mat_code'] == 0) $bib['mat_code'] = $this->locum_config['polaris_custom_config']['polaris_ebook_materialid'];
     }
     
 
