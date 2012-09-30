@@ -11,6 +11,8 @@
 ini_set('mssql.charset', 'UTF-8');
 ini_set('memory_limit', '400M');
 
+$cache_purge_script_url = 'http://www.darienlibrary.org/cache-b-gone.php';
+
 // Drupal DSN
 require_once('/usr/local/etc/drupal_dsn.php');
 
@@ -58,9 +60,8 @@ foreach ($polaris_result as $bib) {
   }
 }
 
-
-
-
+// Clear Drupal cache
+file_get_contents($cache_purge_script_url);
 
 
 
