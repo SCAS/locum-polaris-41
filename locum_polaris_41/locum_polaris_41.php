@@ -59,13 +59,13 @@ class locum_polaris_41 {
     );
 
     // Grab initial bib record details
-    $polaris_db_sql = 'SELECT br.BibliographicRecordID AS bnum, br.CreationDate AS bib_created, br.ModificationDate AS bib_lastupdate, br.ModificationDate AS bib_prevupdate, \'1\' AS bib_revs, br.MARCLanguage AS lang, \'unused\' AS loc_code, mtm.MARCTypeOfMaterialID AS format_code, ((br.DisplayInPAC - 1) * -1) AS suppress, br.BrowseAuthor AS author, br.BrowseTitle AS title, LOWER(br.MARCMedium) AS title_medium, br.BrowseCallNo AS CallNumber, br.PublicationYear AS pub_year FROM [Polaris].[Polaris].[BibliographicRecords] AS br WITH (NOLOCK) LEFT OUTER JOIN [Polaris].[Polaris].[MARCTypeOfMaterial] AS mtm WITH (NOLOCK) ON mtm.MARCTypeOfMaterialID = br.PrimaryMARCTOMID LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicUPCIndex] AS upc WITH (NOLOCK) ON upc.BibliographicRecordID = br.BibliographicRecordID WHERE br.BibliographicRecordID = ' . $bnum;
+    $polaris_db_sql = 'SELECT br.BibliographicRecordID AS bnum, br.CreationDate AS bib_created, br.ModificationDate AS bib_lastupdate, br.ModificationDate AS bib_prevupdate, \'1\' AS bib_revs, br.MARCLanguage AS lang, \'unused\' AS loc_code, mtm.MARCTypeOfMaterialID AS format_code, ((br.DisplayInPAC - 1) * -1) AS suppress, CAST(br.BrowseAuthor AS VARBINARY(MAX)) AS author, CAST(br.BrowseTitle AS VARBINARY(MAX)) AS title, LOWER(br.MARCMedium) AS title_medium, br.BrowseCallNo AS CallNumber, br.PublicationYear AS pub_year FROM [Polaris].[Polaris].[BibliographicRecords] AS br WITH (NOLOCK) LEFT OUTER JOIN [Polaris].[Polaris].[MARCTypeOfMaterial] AS mtm WITH (NOLOCK) ON mtm.MARCTypeOfMaterialID = br.PrimaryMARCTOMID LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicUPCIndex] AS upc WITH (NOLOCK) ON upc.BibliographicRecordID = br.BibliographicRecordID WHERE br.BibliographicRecordID = ' . $bnum;
     $polaris_db_query = $polaris_db->query($polaris_db_sql);
     $polaris_bib_record = $polaris_db_query->fetchRow(MDB2_FETCHMODE_ASSOC);
     if (!count($polaris_bib_record)) { return FALSE; }
 
     // Grab MARC details for bib record
-    $polaris_db_sql = 'SELECT tag.[BibliographicTagID],[BibliographicRecordID],[Sequence],[TagNumber],[IndicatorOne],[IndicatorTwo],[EffectiveTagNumber],[SubfieldSequence],[Subfield],[Data] FROM [Polaris].[Polaris].[BibliographicTags] AS tag LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicSubfields] AS sub ON tag.BibliographicTagID = sub.BibliographicTagID WHERE tag.[BibliographicRecordID] = ' . $bnum . ' ORDER BY [Sequence] ASC, [SubfieldSequence] ASC, [Subfield] ASC';
+    $polaris_db_sql = 'SELECT tag.[BibliographicTagID],[BibliographicRecordID],[Sequence],[TagNumber],[IndicatorOne],[IndicatorTwo],[EffectiveTagNumber],[SubfieldSequence],[Subfield],[Data], CAST([Data] AS VARBINARY(MAX)) AS bindata FROM [Polaris].[Polaris].[BibliographicTags] AS tag LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicSubfields] AS sub ON tag.BibliographicTagID = sub.BibliographicTagID WHERE tag.[BibliographicRecordID] = ' . $bnum . ' ORDER BY [Sequence] ASC, [SubfieldSequence] ASC, [Subfield] ASC';
     $polaris_db_query = $polaris_db->query($polaris_db_sql);
     $polaris_bib_tags = $polaris_db_query->fetchAll(MDB2_FETCHMODE_ASSOC);
     if (!count($polaris_bib_tags)) { return FALSE; }
@@ -93,45 +93,43 @@ class locum_polaris_41 {
 
       // Edition information
       if ($tag_arr['tagnumber'] == 250 && $tag_arr['subfield'] == 'a' && !isset($bib['edition'])) {
-        $bib['edition'] = utf8_encode($tag_arr['data']);
+        $bib['edition'] = $this->mssql_utf8_encode($tag_arr['bindata']);
       }
 
       // Publisher
       if ($tag_arr['tagnumber'] == 260) {
-        $bib['pub_info'] .= ' ' . $tag_arr['data'];
-        $bib['pub_info'] = utf8_encode(trim($bib['pub_info']));
+        $bib['pub_info'] .= ' ' . $this->mssql_utf8_encode($tag_arr['bindata']);
       }
 
       // Description
       if ($tag_arr['tagnumber'] == 300) {
-        $bib['descr'] .= ' ' . $tag_arr['data'];
-        $bib['descr'] = utf8_encode(trim($bib['descr']));
+        $bib['descr'] .= ' ' . $this->mssql_utf8_encode($tag_arr['bindata']);
       }
 
       // Series
       if ($tag_arr['tagnumber'] == 490 && $tag_arr['subfield'] == 'a' && !isset($bib['series'])) {
-        $bib['series'] = utf8_encode(ucwords(trim(ereg_replace("[^A-Za-z0-9 .]", "", $tag_arr['data']))));
+        $bib['series'] = ucwords(trim(ereg_replace("[^A-Za-z0-9 .]", "", $this->mssql_utf8_encode($tag_arr['bindata']))));
       }
 
       // Notes
       if (($tag_arr['tagnumber'] >= 500 && $tag_arr['tagnumber'] <= 539) && $tag_arr['subfield'] == 'a') {
-        $bib_notes[] = utf8_encode($tag_arr['data']);
+        $bib_notes[] = $this->mssql_utf8_encode($tag_arr['bindata']);
         $bib['notes'] = serialize($bib_notes);
       }
 
       // LCSH
       if (in_array($tag_arr['tagnumber'], array(600, 610, 611, 630, 648, 650, 651)) && in_array($tag_arr['subfield'], array('a','x','v'))) {
-        $subject_arr[$tag_arr['sequence']][] = utf8_encode(ereg_replace("[^A-Za-z0-9 ]", "", $tag_arr['data']));
+        $subject_arr[$tag_arr['sequence']][] = ereg_replace("[^A-Za-z0-9 ]", "", $this->mssql_utf8_encode($tag_arr['bindata']));
       }
 
       // Genre (goes in Subject)
       if ($tag_arr['tagnumber'] == 655 && $tag_arr['subfield'] == 'a') {
-        $subject_arr[$tag_arr['sequence']][] = utf8_encode(ereg_replace("[^A-Za-z0-9 ]", "", $tag_arr['data']));
+        $subject_arr[$tag_arr['sequence']][] = ereg_replace("[^A-Za-z0-9 ]", "", $this->mssql_utf8_encode($tag_arr['bindata']));
       }
 
       // Additional Authors
       if ($tag_arr['tagnumber'] == 700 && $tag_arr['subfield'] == 'a') {
-        $addl_author[] = utf8_encode($tag_arr['data']);
+        $addl_author[] = $this->mssql_utf8_encode($tag_arr['bindata']);
         $bib['addl_author'] = serialize($addl_author);
       }
 
@@ -178,8 +176,8 @@ class locum_polaris_41 {
     $bib['lang'] = $polaris_bib_record['lang'];
     $bib['loc_code'] = 'unused';
     $bib['suppress'] = $polaris_bib_record['suppress'];
-    $bib['author'] = utf8_encode(ucwords($polaris_bib_record['author']));
-    $bib['title'] = utf8_encode(ucwords($polaris_bib_record['title']));
+    $bib['author'] = $this->mssql_utf8_encode(ucwords($polaris_bib_record['author']));
+    $bib['title'] = $this->mssql_utf8_encode(ucwords($polaris_bib_record['title']));
     $bib['title_medium'] = $polaris_bib_record['title_medium'];
     $bib['callnum'] = $polaris_bib_record['callnumber'];
     $bib['pub_year'] = $polaris_bib_record['pub_year'];
@@ -790,6 +788,19 @@ class locum_polaris_41 {
     return $return;
   }
 
+  public function mssql_utf8_encode($db_val)
+  {
+    $hex = bin2hex($db_val);
+
+    //And then from hex to string
+    $str = "";
+    for ($i=0;$i<strlen($hex) -1;$i+=2)
+    {
+        $str .= chr(hexdec($hex[$i].$hex[$i+1]));
+    }
+    //And then from UCS-2LE/SQL_Latin1_General_CP1_CI_AS (that's the column format in the DB) to UTF-8
+    return iconv('UCS-2LE', 'UTF-8', $str);
+  }
   
   /**
   * Internal function to prepare individual checkout arrays for patron_checkouts()
