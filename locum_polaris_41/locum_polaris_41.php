@@ -399,6 +399,15 @@ class locum_polaris_41 {
    * @return boolean|array Array of patron checkouts or FALSE if login fails
    */
   public function patron_checkout_history( $cardnum, $pin = NULL ) {
+    // http://neville.ad.darienlibrary.net/PAPIService/REST/public/v1/1033/100/1/patron/cnum/readinghistory
+    // 31517004917627
+
+        $orgID = $this->locum_config['polaris_api']['orgID'];
+    $appID = $this->locum_config['polaris_api']['appID'];
+    $langID = $this->locum_config['polaris_api']['langID'];
+
+
+
 
   }
 
