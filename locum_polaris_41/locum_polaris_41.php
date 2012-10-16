@@ -793,7 +793,7 @@ class locum_polaris_41 {
       $str .= chr( hexdec( $hex[$i].$hex[$i+1] ) );
     }
     //And then from UCS-2LE/SQL_Latin1_General_CP1_CI_AS (that's the column format in the DB) to UTF-8
-    return iconv( 'UCS-2LE', 'UTF-8', $str );
+    return normalizer_normalize( iconv( 'UCS-2LE', 'UTF-8', $str ) );
   }
 
   /**
@@ -839,16 +839,16 @@ class locum_polaris_41 {
 
     if ( $holds_arr['StatusDescription'] == 'Cancelled' ) { return FALSE; }
 
-    if ( preg_match('/active/i', $holds_arr['StatusDescription']) ) {
+    if ( preg_match( '/active/i', $holds_arr['StatusDescription'] ) ) {
       $hold['bnum'] = $holds_arr['BibID'];
       $hold['requestid'] = $holds_arr['HoldRequestID'];
       $hold['title'] = ucwords( $holds_arr['Title'] );
       $hold['ill'] = 0; // Not supported yet
       if ( $holds_arr['QueuePosition'] ) {
         $hold['status'] = $holds_arr['QueuePosition'] . ' of ' . $holds_arr['QueueTotal'];
-      } else if ($holds_arr['StatusDescription'] == 'Inactive') {
-        $hold['status'] = 'Hold is Frozen'; 
-      } else {
+      } else if ( $holds_arr['StatusDescription'] == 'Inactive' ) {
+          $hold['status'] = 'Hold is Frozen';
+        } else {
         $hold['status'] = 'Hold is Ready';
       }
       $activ_date = date_parse( preg_replace( '/T/i', ' ', $holds_arr['ActivationDate'] ) );
