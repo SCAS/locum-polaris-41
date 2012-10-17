@@ -441,7 +441,6 @@ class locum_polaris_41 {
     $toggle_sql = 'UPDATE [Polaris].[Polaris].[PatronRegistration] SET [ReadingList] = (([ReadingList] - 1) * -1) WHERE [PatronID] = ' . $polaris_patronID;
     $polaris_db_query = $polaris_db->query( $polaris_db_sql );
     }
-    
   }
 
   /**
