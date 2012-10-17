@@ -420,6 +420,28 @@ class locum_polaris_41 {
    */
   public function patron_checkout_history_toggle( $cardnum, $pin = NULL, $action ) {
 
+    $psql_username = $this->locum_config['polaris_sql']['username'];
+    $psql_password = $this->locum_config['polaris_sql']['password'];
+    $psql_database = $this->locum_config['polaris_sql']['database'];
+    $psql_server = $this->locum_config['polaris_sql']['server'];
+    $psql_port = $this->locum_config['polaris_sql']['port'];
+
+    $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
+    $polaris_db =& MDB2::connect( $polaris_dsn );
+    if ( PEAR::isError( $polaris_db ) ) {
+      return 'skip';
+    };
+
+    // Grab the patron ID from the database
+    $polaris_db_sql = "SELECT [PatronID] FROM [Polaris].[Polaris].[Patrons] WHERE [PatronID] = $pid OR [Barcode] = '$pid'";
+    $polaris_db_query = $polaris_db->query( $polaris_db_sql );
+    $polaris_patronID = $polaris_db_query->fetchOne();
+
+    if ($polaris_patronID) {
+    $toggle_sql = 'UPDATE [Polaris].[Polaris].[PatronRegistration] SET [ReadingList] = (([ReadingList] - 1) * -1) WHERE [PatronID] = ' . $polaris_patronID;
+    $polaris_db_query = $polaris_db->query( $polaris_db_sql );
+    }
+    
   }
 
   /**
