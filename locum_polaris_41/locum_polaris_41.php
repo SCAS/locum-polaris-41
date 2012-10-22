@@ -398,27 +398,9 @@ class locum_polaris_41 {
    * @param string  $pin     Patron pin/password
    * @return boolean|array Array of patron checkouts or FALSE if login fails
    */
-  public function patron_checkout_history( $cardnum, $pin = NULL ) {
+  public function patron_checkout_history( $pid, $pin = NULL ) {
     // http://neville.ad.darienlibrary.net/PAPIService/REST/public/v1/1033/100/1/patron/cnum/readinghistory
     // 31517004917627
-
-        $orgID = $this->locum_config['polaris_api']['orgID'];
-    $appID = $this->locum_config['polaris_api']['appID'];
-    $langID = $this->locum_config['polaris_api']['langID'];
-
-
-
-
-  }
-
-  /**
-   * Opts patron in or out of checkout history
-   *
-   * @param string  $cardnum Patron barcode/card number
-   * @param string  $pin     Patron pin/password
-   * @return boolean|array Array of patron checkouts or FALSE if login fails
-   */
-  public function patron_checkout_history_toggle( $cardnum, $pin = NULL, $action ) {
 
     $psql_username = $this->locum_config['polaris_sql']['username'];
     $psql_password = $this->locum_config['polaris_sql']['password'];
@@ -429,7 +411,7 @@ class locum_polaris_41 {
     $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
     $polaris_db =& MDB2::connect( $polaris_dsn );
     if ( PEAR::isError( $polaris_db ) ) {
-      return 'skip';
+      return FALSE;
     };
 
     // Grab the patron ID from the database
@@ -437,9 +419,60 @@ class locum_polaris_41 {
     $polaris_db_query = $polaris_db->query( $polaris_db_sql );
     $polaris_patronID = $polaris_db_query->fetchOne();
 
-    if ($polaris_patronID) {
-    $toggle_sql = 'UPDATE [Polaris].[Polaris].[PatronRegistration] SET [ReadingList] = (([ReadingList] - 1) * -1) WHERE [PatronID] = ' . $polaris_patronID;
+    $polaris_db_query->free();
+
+    $polaris_db_sql = 'SELECT BR.BibliographicRecordID AS BibID, CASE WHEN PRH.ItemRecordID IS NULL THEN PRH.BrowseTitle ELSE BR.BrowseTitle END AS Title, CASE WHEN PRH.ItemRecordID IS NULL THEN PRH.BrowseAuthor ELSE BR.BrowseAuthor END AS Author, CheckOutDate FROM [Polaris].[Polaris].[PatronReadingHistory] AS PRH WITH (NOLOCK) LEFT JOIN [Polaris].[Polaris].[CircItemRecords] AS CIR WITH (NOLOCK) ON PRH.ItemRecordID = CIR.ItemRecordID LEFT JOIN [Polaris].[Polaris].[BibliographicRecords] AS BR WITH (NOLOCK) ON CIR.AssociatedBibRecordID = BR.BibliographicRecordID INNER JOIN [Polaris].[Polaris].[ItemRecordDetails] AS IRD WITH (NOLOCK) ON CIR.ItemRecordID = IRD.ItemRecordID WHERE PatronID = ' . $polaris_patronID . 'ORDER BY CheckOutDate ASC';
     $polaris_db_query = $polaris_db->query( $polaris_db_sql );
+    $polaris_items = $polaris_db_query->fetchAll( MDB2_FETCHMODE_ASSOC );
+
+    return $polaris_items;
+
+  }
+
+  /**
+   * Opts patron in or out of checkout history
+   *
+   * @param string  $pid Patron ID/barcode/card number
+   * @param string  $pin Patron pin/password
+   * @return boolean|array Array of patron checkouts or FALSE if login fails
+   */
+  public function patron_checkout_history_toggle( $pid, $pin = NULL, $action ) {
+
+    $psql_username = $this->locum_config['polaris_sql']['username'];
+    $psql_password = $this->locum_config['polaris_sql']['password'];
+    $psql_database = $this->locum_config['polaris_sql']['database'];
+    $psql_server = $this->locum_config['polaris_sql']['server'];
+    $psql_port = $this->locum_config['polaris_sql']['port'];
+
+    $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
+    $polaris_db =& MDB2::connect( $polaris_dsn );
+    if ( PEAR::isError( $polaris_db ) ) {
+      return FALSE;
+    };
+
+    if ( in_array( $action, array( 'in', 'on' ) ) ) {
+      $toggle_bit = '1';
+    } else if ( in_array( $action, array( 'out', 'off' ) ) ) {
+        $toggle_bit = '0';
+      } else {
+      $toggle_bit = '(([ReadingList] - 1) * -1)';
+    }
+
+    // Grab the patron ID from the database
+    $polaris_db_sql = "SELECT [PatronID] FROM [Polaris].[Polaris].[Patrons] WHERE [PatronID] = $pid OR [Barcode] = '$pid'";
+    $polaris_db_query = $polaris_db->query( $polaris_db_sql );
+    $polaris_patronID = $polaris_db_query->fetchOne();
+
+    if ( $polaris_patronID ) {
+      $toggle_sql = 'UPDATE [Polaris].[Polaris].[PatronRegistration] SET [ReadingList] = ' . $toggle_bit . ' WHERE [PatronID] = ' . $polaris_patronID;
+      $polaris_db_query = $polaris_db->query( $polaris_db_sql );
+      if ( PEAR::isError( $polaris_db_query ) ) {
+        return FALSE;
+      } else {
+        return TRUE;
+      }
+    } else {
+      return FALSE;
     }
   }
 
