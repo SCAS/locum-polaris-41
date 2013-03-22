@@ -739,9 +739,9 @@ class locum_polaris_41 {
     $langID = $this->locum_config['polaris_api']['langID'];
     $payment_class = $this->locum_config['payment']['library'];
 
-    $payment_amount = $paument_details['total'];
+    $payment_amount = (float) $payment_details['total'];
 
-    if ( (float) $payment_details > 0 ) {
+    if ( $payment_amount > 0 ) {
 
       require_once 'payment/' . $payment_class . '/' . $payment_class . '.php';
 
