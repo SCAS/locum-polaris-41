@@ -398,7 +398,7 @@ class locum_polaris_41 {
    * @param string  $pin     Patron pin/password
    * @return boolean|array Array of patron checkouts or FALSE if login fails
    */
-  public function patron_checkout_history( $pid, $pin = NULL ) {
+  public function patron_checkout_history( $pid, $pin = NULL, $last_record = NULL ) {
     // http://neville.ad.darienlibrary.net/PAPIService/REST/public/v1/1033/100/1/patron/cnum/readinghistory
     // 31517004917627
 
@@ -421,7 +421,10 @@ class locum_polaris_41 {
 
     $polaris_db_query->free();
 
-    $polaris_db_sql = 'SELECT BR.BibliographicRecordID AS BibID, CASE WHEN PRH.ItemRecordID IS NULL THEN PRH.BrowseTitle ELSE BR.BrowseTitle END AS Title, CASE WHEN PRH.ItemRecordID IS NULL THEN PRH.BrowseAuthor ELSE BR.BrowseAuthor END AS Author, CheckOutDate FROM [Polaris].[Polaris].[PatronReadingHistory] AS PRH WITH (NOLOCK) LEFT JOIN [Polaris].[Polaris].[CircItemRecords] AS CIR WITH (NOLOCK) ON PRH.ItemRecordID = CIR.ItemRecordID LEFT JOIN [Polaris].[Polaris].[BibliographicRecords] AS BR WITH (NOLOCK) ON CIR.AssociatedBibRecordID = BR.BibliographicRecordID INNER JOIN [Polaris].[Polaris].[ItemRecordDetails] AS IRD WITH (NOLOCK) ON CIR.ItemRecordID = IRD.ItemRecordID WHERE PatronID = ' . $polaris_patronID . 'ORDER BY CheckOutDate ASC';
+    // Grab patron history
+    $last_record_sql = NULL;
+    if ($last_record) { $last_record_sql = ' AND BR.BibliographicRecordID > ' . $last_record . ' '; }
+    $polaris_db_sql = 'SELECT BR.BibliographicRecordID AS BibID, CASE WHEN PRH.ItemRecordID IS NULL THEN PRH.BrowseTitle ELSE BR.BrowseTitle END AS Title, CASE WHEN PRH.ItemRecordID IS NULL THEN PRH.BrowseAuthor ELSE BR.BrowseAuthor END AS Author, CheckOutDate, PatronReadingHistoryID AS hist_id FROM [Polaris].[Polaris].[PatronReadingHistory] AS PRH WITH (NOLOCK) LEFT JOIN [Polaris].[Polaris].[CircItemRecords] AS CIR WITH (NOLOCK) ON PRH.ItemRecordID = CIR.ItemRecordID LEFT JOIN [Polaris].[Polaris].[BibliographicRecords] AS BR WITH (NOLOCK) ON CIR.AssociatedBibRecordID = BR.BibliographicRecordID INNER JOIN [Polaris].[Polaris].[ItemRecordDetails] AS IRD WITH (NOLOCK) ON CIR.ItemRecordID = IRD.ItemRecordID WHERE PatronID = ' . $polaris_patronID . $last_record_sql . ' ORDER BY CheckOutDate ASC';
     $polaris_db_query = $polaris_db->query( $polaris_db_sql );
     $polaris_items = $polaris_db_query->fetchAll( MDB2_FETCHMODE_ASSOC );
 
@@ -464,8 +467,14 @@ class locum_polaris_41 {
     $polaris_patronID = $polaris_db_query->fetchOne();
 
     if ( $polaris_patronID ) {
+      if ( $action == 'status') {
+        $hist_sql = "SELECT [ReadingList] FROM [Polaris].[Polaris].[PatronRegistration] WHERE [PatronID] = " . $polaris_patronID;
+        $polaris_db_query = $polaris_db->query( $hist_sql );
+        $hist_setting = $polaris_db_query->fetchOne();
+        if ($hist_setting) { return TRUE; } else { return FALSE; }
+      }
       $toggle_sql = 'UPDATE [Polaris].[Polaris].[PatronRegistration] SET [ReadingList] = ' . $toggle_bit . ' WHERE [PatronID] = ' . $polaris_patronID;
-      $polaris_db_query = $polaris_db->query( $polaris_db_sql );
+      $polaris_db_query = $polaris_db->query( $toggle_sql );
       if ( PEAR::isError( $polaris_db_query ) ) {
         return FALSE;
       } else {
