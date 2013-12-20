@@ -399,14 +399,14 @@ class locum_polaris_41 {
    * @return boolean|array Array of patron checkouts or FALSE if login fails
    */
   public function patron_checkout_history( $pid, $pin = NULL, $last_record = NULL ) {
-    // http://neville.ad.darienlibrary.net/PAPIService/REST/public/v1/1033/100/1/patron/cnum/readinghistory
-    // 31517004917627
 
     $psql_username = $this->locum_config['polaris_sql']['username'];
     $psql_password = $this->locum_config['polaris_sql']['password'];
     $psql_database = $this->locum_config['polaris_sql']['database'];
     $psql_server = $this->locum_config['polaris_sql']['server'];
     $psql_port = $this->locum_config['polaris_sql']['port'];
+
+    ini_set( 'mssql.charset', 'cp1252' );
 
     $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
     $polaris_db =& MDB2::connect( $polaris_dsn );
@@ -423,12 +423,23 @@ class locum_polaris_41 {
 
     // Grab patron history
     $last_record_sql = NULL;
-    if ($last_record) { $last_record_sql = ' AND BR.BibliographicRecordID > ' . $last_record . ' '; }
-    $polaris_db_sql = 'SELECT BR.BibliographicRecordID AS BibID, CASE WHEN PRH.ItemRecordID IS NULL THEN PRH.BrowseTitle ELSE BR.BrowseTitle END AS Title, CASE WHEN PRH.ItemRecordID IS NULL THEN PRH.BrowseAuthor ELSE BR.BrowseAuthor END AS Author, CheckOutDate, PatronReadingHistoryID AS hist_id FROM [Polaris].[Polaris].[PatronReadingHistory] AS PRH WITH (NOLOCK) LEFT JOIN [Polaris].[Polaris].[CircItemRecords] AS CIR WITH (NOLOCK) ON PRH.ItemRecordID = CIR.ItemRecordID LEFT JOIN [Polaris].[Polaris].[BibliographicRecords] AS BR WITH (NOLOCK) ON CIR.AssociatedBibRecordID = BR.BibliographicRecordID INNER JOIN [Polaris].[Polaris].[ItemRecordDetails] AS IRD WITH (NOLOCK) ON CIR.ItemRecordID = IRD.ItemRecordID WHERE PatronID = ' . $polaris_patronID . $last_record_sql . ' ORDER BY CheckOutDate ASC';
+    if ($last_record) { $last_record_sql = ' AND PatronReadingHistoryID > ' . $last_record . ' '; }
+    $polaris_db_sql = 'SELECT BR.BibliographicRecordID AS BibID, CASE WHEN PRH.ItemRecordID IS NULL THEN CAST(PRH.BrowseTitle AS VARBINARY(MAX)) ELSE CAST(BR.BrowseTitle AS VARBINARY(MAX)) END AS Title, CASE WHEN PRH.ItemRecordID IS NULL THEN CAST(PRH.BrowseAuthor AS VARBINARY(MAX)) ELSE CAST(BR.BrowseAuthor AS VARBINARY(MAX)) END AS Author, CheckOutDate, PatronReadingHistoryID AS hist_id FROM [Polaris].[Polaris].[PatronReadingHistory] AS PRH WITH (NOLOCK) LEFT JOIN [Polaris].[Polaris].[CircItemRecords] AS CIR WITH (NOLOCK) ON PRH.ItemRecordID = CIR.ItemRecordID LEFT JOIN [Polaris].[Polaris].[BibliographicRecords] AS BR WITH (NOLOCK) ON CIR.AssociatedBibRecordID = BR.BibliographicRecordID INNER JOIN [Polaris].[Polaris].[ItemRecordDetails] AS IRD WITH (NOLOCK) ON CIR.ItemRecordID = IRD.ItemRecordID WHERE PatronID = ' . $polaris_patronID . $last_record_sql . ' ORDER BY CheckOutDate ASC';
     $polaris_db_query = $polaris_db->query( $polaris_db_sql );
     $polaris_items = $polaris_db_query->fetchAll( MDB2_FETCHMODE_ASSOC );
 
-    return $polaris_items;
+    $items_encoded = array();
+    foreach ($polaris_items as $pitem) {
+      $items_encoded[] = array(
+        'bibid' => $pitem['bibid'],
+        'title' => $this->mssql_utf8_encode( $pitem['title'] ),
+        'author' => $this->mssql_utf8_encode( $pitem['author'] ),
+        'checkoutdate' => $pitem['checkoutdate'],
+        'hist_id' => $pitem['hist_id']
+      );
+    }
+
+    return $items_encoded;
 
   }
 
