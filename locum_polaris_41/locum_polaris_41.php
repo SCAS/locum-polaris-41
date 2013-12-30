@@ -497,6 +497,51 @@ class locum_polaris_41 {
   }
 
   /**
+   * Deletes patron checkout history
+   *
+   * @param string  $cardnum     Patron barcode/card number
+   * @param string  $pin         Patron pin/password
+   * @param int     $hist_id     Unique history ID corresponding to history record ID in ILS (may be a string, but probably not)
+   * @param bool    $all_hist    Tells the function to delete all history for that user if TRUE
+   */
+  public function patron_checkout_history_delete( $pid, $pin, $hist_id = NULL, $all_hist = NULL ) {
+
+    $psql_username = $this->locum_config['polaris_sql']['username'];
+    $psql_password = $this->locum_config['polaris_sql']['password'];
+    $psql_database = $this->locum_config['polaris_sql']['database'];
+    $psql_server = $this->locum_config['polaris_sql']['server'];
+    $psql_port = $this->locum_config['polaris_sql']['port'];
+
+    $polaris_dsn = 'mssql://' . $psql_username . ':' . $psql_password . '@' . $psql_server . ':' . $psql_port . '/' . $psql_database;
+    $polaris_db =& MDB2::connect( $polaris_dsn );
+    if ( PEAR::isError( $polaris_db ) ) {
+      return FALSE;
+    };
+
+    // Grab the patron ID from the database
+    $polaris_db_sql = "SELECT [PatronID] FROM [Polaris].[Polaris].[Patrons] WHERE [PatronID] = $pid OR [Barcode] = '$pid'";
+    $polaris_db_query = $polaris_db->query( $polaris_db_sql );
+    $polaris_patronID = $polaris_db_query->fetchOne();
+
+    if ($all_hist) {
+      $delete_hist_sql = "DELETE FROM [Polaris].[Polaris].[PatronReadingHistory] WHERE [PatronID] = " . $polaris_patronID;
+    } else if ($hist_id) {
+      $delete_hist_sql = "DELETE FROM [Polaris].[Polaris].[PatronReadingHistory] WHERE [PatronID] = " . $polaris_patronID . " AND [PatronReadingHistoryID] = " . $hist_id;
+    } else {
+      return FALSE;
+    }
+
+    $polaris_db_query = $polaris_db->query( $delete_hist_sql );
+    if ( PEAR::isError( $polaris_db_query ) ) {
+      return FALSE;
+    } else {
+      return TRUE;
+    }
+
+  }
+
+
+  /**
    * Returns an array of patron holds
    *
    * @param string  $cardnum Patron barcode/card number
@@ -595,10 +640,6 @@ class locum_polaris_41 {
       }
     }
   }
-
-
-
-
 
   /**
    * Updates holds/reserves
