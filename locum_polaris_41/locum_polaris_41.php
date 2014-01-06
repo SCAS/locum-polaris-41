@@ -798,6 +798,7 @@ class locum_polaris_41 {
     $orgID = $this->locum_config['polaris_api']['orgID'];
     $appID = $this->locum_config['polaris_api']['appID'];
     $langID = $this->locum_config['polaris_api']['langID'];
+    $papi_token = $this->locum_config['polaris_api']['PAPIAccessKey'];
     $payment_class = $this->locum_config['payment']['library'];
 
     $payment_amount = (float) $payment_details['total'];
@@ -842,7 +843,7 @@ class locum_polaris_41 {
         foreach ( $payment_details['varnames'] as $varname ) {
           if ( in_array( $varname, $valid_tx_ids ) ) {
             $txnamt = $allfines[$varname];
-            $polaris_uri = '/PAPIService/REST/public/v1/' . $langID . '/' . $appID . '/' . $orgID . '/patron/' . $cardnum . '/account/' . $varname . '/pay?wsid=1&userid=1';
+            $polaris_uri = '/PAPIService/REST/protected/v1/' . $langID . '/' . $appID . '/' . $orgID . '/' . $papi_token . '/patron/' . $cardnum . '/account/' . $varname . '/pay?wsid=1&userid=1';
             $content = '<PatronAccountPayData><TxnAmount>' . $txnamt . '</TxnAmount><PaymentMethodID>12</PaymentMethodID><FreeTextNote>' . $transaction_result['result_msg'] . '</FreeTextNote></PatronAccountPayData>';
             $payment_request_result[] = $this->simpleXMLToArray( simplexml_load_string( $this->curl_put( $polaris_uri, $content ) ) );
           }
