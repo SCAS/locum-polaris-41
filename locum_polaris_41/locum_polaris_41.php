@@ -676,7 +676,6 @@ class locum_polaris_41 {
         }
       }
     }
-    return $freeze_query_result;
 
     foreach ( $cancelholds as $bnum => $cancelBool ) {
       if ( $cancelBool ) {
