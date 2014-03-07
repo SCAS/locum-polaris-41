@@ -59,7 +59,7 @@ class locum_polaris_41 {
     );
 
     // Grab initial bib record details
-    $polaris_db_sql = 'SELECT br.BibliographicRecordID AS bnum, br.CreationDate AS bib_created, br.ModificationDate AS bib_lastupdate, br.ModificationDate AS bib_prevupdate, \'1\' AS bib_revs, br.MARCLanguage AS lang, \'unused\' AS loc_code, mtm.MARCTypeOfMaterialID AS format_code, ((br.DisplayInPAC - 1) * -1) AS suppress, CAST(br.BrowseAuthor AS VARBINARY(MAX)) AS author, CAST(br.BrowseTitle AS VARBINARY(MAX)) AS title, LOWER(br.MARCMedium) AS title_medium, br.BrowseCallNo AS CallNumber, br.PublicationYear AS pub_year FROM [Polaris].[Polaris].[BibliographicRecords] AS br WITH (NOLOCK) LEFT OUTER JOIN [Polaris].[Polaris].[MARCTypeOfMaterial] AS mtm WITH (NOLOCK) ON mtm.MARCTypeOfMaterialID = br.PrimaryMARCTOMID LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicUPCIndex] AS upc WITH (NOLOCK) ON upc.BibliographicRecordID = br.BibliographicRecordID WHERE br.BibliographicRecordID = ' . $bnum;
+    $polaris_db_sql = 'SELECT br.BibliographicRecordID AS bnum, br.CreationDate AS bib_created, br.ModificationDate AS bib_lastupdate, br.ModificationDate AS bib_prevupdate, \'1\' AS bib_revs, br.MARCLanguage AS lang, \'unused\' AS loc_code, mtm.MARCTypeOfMaterialID AS format_code, ((br.DisplayInPAC - 1) * -1) AS suppress, CAST(br.BrowseAuthor AS VARBINARY(MAX)) AS author, CAST(br.BrowseTitle AS VARBINARY(MAX)) AS title, LOWER(br.MARCMedium) AS title_medium, br.BrowseCallNo AS CallNumber, br.PublicationYear AS pub_year, br.RecordStatusID AS record_status FROM [Polaris].[Polaris].[BibliographicRecords] AS br WITH (NOLOCK) LEFT OUTER JOIN [Polaris].[Polaris].[MARCTypeOfMaterial] AS mtm WITH (NOLOCK) ON mtm.MARCTypeOfMaterialID = br.PrimaryMARCTOMID LEFT OUTER JOIN [Polaris].[Polaris].[BibliographicUPCIndex] AS upc WITH (NOLOCK) ON upc.BibliographicRecordID = br.BibliographicRecordID WHERE br.BibliographicRecordID = ' . $bnum;
     $polaris_db_query = $polaris_db->query( $polaris_db_sql );
     $polaris_bib_record = $polaris_db_query->fetchRow( MDB2_FETCHMODE_ASSOC );
     if ( !count( $polaris_bib_record ) ) { return FALSE; }
@@ -182,6 +182,7 @@ class locum_polaris_41 {
     $bib['callnum'] = $polaris_bib_record['callnumber'];
     $bib['pub_year'] = $polaris_bib_record['pub_year'];
     $bib['upc'] = isset( $polaris_bib_record['upc'] ) ? $polaris_bib_record['upc'] : NULL;
+    $bib['record_status'] = $polaris_bib_record['record_status'];
 
     if ( isset( $subject_arr ) ) {
       foreach ( $subject_arr as $subj ) {
